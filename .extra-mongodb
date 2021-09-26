@@ -1,0 +1,16 @@
+
+//If you want a shorter id to your documents you can create a autoincrement field
+exports = async function(changeEvent) {
+    //This is document id of the document that trigger this action
+    var docId = changeEvent.fullDocument._id;
+    //Define ClusterName and Collection of this trigger
+    const clusterName = "<ATLAS-CLUSTER>";
+    const countersCollection = "autoincrement-ids"
+    //Get Collections
+    const countercollection = context.services.get(clusterName).db(changeEvent.ns.db).collection(countersCollection);
+    const studentcollection = context.services.get(clusterName).db(changeEvent.ns.db).collection(changeEvent.ns.coll);
+    //Update Documents with autoincrement
+    var counter = await countercollection.findOneAndUpdate({_id: changeEvent.ns },{ $inc: { seq_value: 1 }}, { returnNewDocument: true, upsert : true});
+    var updateRes = await studentcollection.updateOne({_id : docId},{ $set : {current_id : counter.seq_value}});
+    console.log(`Updated ${JSON.stringify(changeEvent.ns)} with counter ${counter.seq_value} result : ${JSON.stringify(updateRes)}`);
+};

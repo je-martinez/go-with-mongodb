@@ -6,11 +6,13 @@ import (
 	"go-with-mongodb/database"
 	myhelpers "go-with-mongodb/helpers"
 	foods "go-with-mongodb/models"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -41,7 +43,9 @@ func PostFood(c *gin.Context) {
 	food.ID = primitive.NewObjectID()
 
 	// assign the the auto generated ID to the primary key attribute
-	food.Food_id = food.ID.Hex()
+
+	//replaced because we use a trigger for autoincrement value
+	//food.Food_id = food.ID.Hex()
 	var num = myhelpers.ToFixed(*food.Price, 2)
 	food.Price = &num
 	result, insertErr := foodCollection.InsertOne(ctx, food)
@@ -51,7 +55,17 @@ func PostFood(c *gin.Context) {
 		return
 	}
 	defer cancel()
+	var newRecord bson.M
+	err := foodCollection.FindOne(context.TODO(), bson.D{{"_id", result.InsertedID}}).Decode(&newRecord)
+	if err != nil {
+		// ErrNoDocuments means that the filter did not match any documents in the collection
+		if err == mongo.ErrNoDocuments {
+			return
+		}
+		log.Fatal(err)
+	}
+	fmt.Printf("found document %v", result)
 
 	//return the id of the created object to the frontend
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, newRecord)
 }
